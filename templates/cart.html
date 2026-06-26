@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Lumora Cosmetics | Cart{% endblock %}
+{% block content %}
+<section class="section-head">
+  <div>
+    <p class="eyebrow">Cart</p>
+    <h1>Your selected products</h1>
+  </div>
+  <a class="secondary-button" href="{{ url_for('checkout_page') }}">Proceed to checkout</a>
+</section>
+
+<section class="cart-layout">
+  <div class="cart-panel" data-cart-panel>
+    <div class="cart-empty-state" data-cart-empty>
+      <h2>Your cart is empty</h2>
+      <p>Add a few items from the storefront to begin.</p>
+      <a class="primary-button" href="{{ url_for('index') }}">Continue shopping</a>
+    </div>
+    <div class="cart-items" data-cart-items></div>
+  </div>
+
+  <aside class="summary-panel">
+    <h2>Order summary</h2>
+    <div class="summary-row">
+      <span>Items</span>
+      <strong data-summary-count>0</strong>
+    </div>
+    <div class="summary-row total-row">
+      <span>Total</span>
+      <strong data-summary-total>$0.00</strong>
+    </div>
+    <a class="primary-button full-width" href="{{ url_for('checkout_page') }}">Checkout via WhatsApp</a>
+    <div class="support-box">
+      <strong>Need help choosing?</strong>
+      <p>Our team can help you build your perfect routine in minutes.</p>
+    </div>
+  </aside>
+</section>
+{% endblock %}

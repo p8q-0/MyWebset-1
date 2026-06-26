@@ -1,0 +1,20 @@
+{% extends "admin-base.html" %}
+{% block title %}Lumora Cosmetics | Admin Login{% endblock %}
+{% block content %}
+<section class="auth-shell">
+  <form class="auth-card" data-admin-login-form>
+    <p class="eyebrow">Admin access</p>
+    <h1>Sign in to the dashboard</h1>
+    <label>
+      <span>Username</span>
+      <input type="text" name="username" autocomplete="username" required>
+    </label>
+    <label>
+      <span>Password</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="primary-button full-width" type="submit">Log in</button>
+    <p class="muted auth-note">Default credentials are seeded in SQLite on first launch and should be changed for production.</p>
+  </form>
+</section>
+{% endblock %}

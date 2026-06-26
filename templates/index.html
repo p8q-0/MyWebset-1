@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Lumora Cosmetics | Premium Beauty & Skincare{% endblock %}
+{% block content %}
+<section class="hero-card" id="home">
+  <div class="hero-copy">
+    <p class="eyebrow">Luxury beauty, reimagined</p>
+    <h1>Reveal Your Natural Beauty</h1>
+    <p class="hero-text">Discover luxurious skincare and cosmetics crafted to enhance your glow with a soft, modern finish that feels effortlessly premium.</p>
+    <div class="hero-actions">
+      <a class="primary-button" href="#shop">Shop Now</a>
+      <a class="secondary-button" href="#shop">Explore Collection</a>
+    </div>
+    <div class="hero-meta">
+      <span>Dermatologist-loved formulas</span>
+      <span>Velvety finishes</span>
+      <span>Free shipping over $50</span>
+    </div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="hero-visual-glow"></div>
+    <div class="floating-card card-one">Radiant glow</div>
+    <div class="floating-card card-two">Soft velvet finish</div>
+    <div class="floating-card card-three">Fast WhatsApp orders</div>
+    <div class="hero-portrait-card">
+      <span>Signature edit</span>
+      <strong>Beauty with calm luxury</strong>
+    </div>
+  </div>
+</section>
+
+<section class="section-head" id="shop">
+  <div>
+    <p class="eyebrow">Featured Products</p>
+    <h2>Curated for your glow</h2>
+  </div>
+  <div class="filter-bar">
+    <label class="filter-label" for="category-filter">Filter by category</label>
+    <select id="category-filter">
+      <option value="">All products</option>
+      <option value="Lips">Lips</option>
+      <option value="Face">Face</option>
+      <option value="Eyes">Eyes</option>
+      <option value="Skin">Skin</option>
+    </select>
+  </div>
+</section>
+
+<section class="product-grid" data-product-grid data-loading="true">
+  <div class="grid-skeleton"></div>
+  <div class="grid-skeleton"></div>
+  <div class="grid-skeleton"></div>
+  <div class="grid-skeleton"></div>
+</section>
+
+{% endblock %}

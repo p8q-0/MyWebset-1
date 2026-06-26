@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Lumora Cosmetics | Product{% endblock %}
+{% block content %}
+<section class="detail-shell" data-product-page data-product-id="{{ product_id }}">
+  <div class="detail-image-wrap">
+    <div class="detail-image placeholder-surface" data-product-image></div>
+  </div>
+  <div class="detail-copy">
+    <p class="eyebrow" data-product-category>Loading category</p>
+    <h1 data-product-name>Loading product...</h1>
+    <p class="detail-description" data-product-description>Fetching product data from the API.</p>
+    <div class="price-row">
+      <strong data-product-price>$0.00</strong>
+      <span data-product-stock>In stock</span>
+    </div>
+    <div class="detail-actions">
+      <button class="primary-button" type="button" data-add-to-cart>Add to cart</button>
+      <a class="secondary-button" href="{{ url_for('cart_page') }}">View cart</a>
+    </div>
+    <div class="detail-highlights">
+      <div>
+        <strong>Luxury finish</strong>
+        <p>Soft glow and refined texture for everyday wear.</p>
+      </div>
+      <div>
+        <strong>Fast delivery</strong>
+        <p>We prepare every order with care and attention.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

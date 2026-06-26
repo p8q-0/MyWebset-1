@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Lumora Cosmetics | Premium Beauty & Skincare{% endblock %}</title>
+  <meta name="description" content="Lumora Cosmetics offers premium skincare and beauty essentials designed to reveal your natural beauty with a luxurious, modern experience.">
+  <link rel="icon" href="{{ url_for('static', filename='images/logo.svg') }}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <script defer src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="{{ url_for('index') }}">
+        <img class="brand-logo" src="{{ url_for('static', filename='images/logo.svg') }}" alt="Lumora Cosmetics logo">
+        <span>
+          <strong>Lumora Cosmetics</strong>
+          <small>Premium beauty, softly made</small>
+        </span>
+      </a>
+      {% if not hide_public_nav %}
+      <nav class="site-nav" aria-label="Primary">
+        <a href="{{ url_for('index') }}#home">Home</a>
+        <a href="{{ url_for('index') }}#shop">Shop</a>
+        <a href="{{ url_for('cart_page') }}">Cart <span class="cart-pill" data-cart-count>0</span></a>
+        <a href="{{ url_for('checkout_page') }}">Checkout</a>
+      </nav>
+      {% endif %}
+    </header>
+
+    <main class="page-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <footer class="site-footer">
+    <div class="footer-brand">
+      <img class="brand-logo brand-logo-footer" src="{{ url_for('static', filename='images/logo.svg') }}" alt="Lumora Cosmetics logo">
+      <div>
+        <strong>Lumora Cosmetics</strong>
+        <p>Luxury beauty essentials, thoughtfully crafted to elevate your natural glow.</p>
+      </div>
+    </div>
+    <div class="footer-links">
+      <div>
+        <h3>Quick Links</h3>
+        <a href="{{ url_for('index') }}#home">Home</a>
+        <a href="{{ url_for('index') }}#shop">Shop</a>
+        <a href="{{ url_for('cart_page') }}">Cart</a>
+      </div>
+      <div>
+        <h3>Social</h3>
+        <a href="https://www.tiktok.com/@lumora.store49?_r=1&_t=ZS-97W1h6oMscL" target="_blank" rel="noopener noreferrer">TikTok</a>
+        <a href="https://www.facebook.com/share/1JnpUvYsDL/" target="_blank" rel="noopener noreferrer">Facebook</a>
+        <a href="https://www.instagram.com/lumora_store44?igsh=MWY1OGprZzEya2NkbQ=" target="_blank" rel="noopener noreferrer">Instagram</a>
+      </div>
+      <div>
+        <h3>Contact</h3>
+        <a href="mailto:hello@lumoracosmetics.com">hello@lumoracosmetics.com</a>
+        <a href="tel:+201000000000">+20 100 000 0000</a>
+      </div>
+    </div>
+  </footer>
+  <div class="toast-stack" aria-live="polite" aria-atomic="true" data-toast-stack></div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

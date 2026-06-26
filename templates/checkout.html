@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Lumora Cosmetics | Checkout{% endblock %}
+{% block content %}
+<section class="section-head">
+  <div>
+    <p class="eyebrow">Checkout</p>
+    <h1>Send your order through WhatsApp</h1>
+  </div>
+  <div class="checkout-badge">No order storage</div>
+</section>
+
+<section class="checkout-layout">
+  <form class="checkout-form" data-checkout-form>
+    <label>
+      <span>Name</span>
+      <input type="text" name="name" autocomplete="name" required>
+    </label>
+    <label>
+      <span>Phone</span>
+      <input type="tel" name="phone" autocomplete="tel" required>
+    </label>
+    <label>
+      <span>Address</span>
+      <textarea name="address" rows="3" required></textarea>
+    </label>
+    <label>
+      <span>Notes</span>
+      <textarea name="notes" rows="3" placeholder="Delivery instructions, shade preferences, and more."></textarea>
+    </label>
+    <button class="primary-button full-width" type="submit">Confirm order</button>
+  </form>
+
+  <aside class="summary-panel checkout-summary">
+    <h2>Cart summary</h2>
+    <div class="checkout-order-list" data-checkout-items></div>
+    <div class="summary-row total-row">
+      <span>Total</span>
+      <strong data-checkout-total>$0.00</strong>
+    </div>
+    <div class="support-box">
+      <strong>Fast and secure</strong>
+      <p>Your order opens in WhatsApp instantly so you can review and send it without friction.</p>
+    </div>
+    <p class="muted">The WhatsApp message is generated locally, then opened in a new tab for you to send.</p>
+  </aside>
+</section>
+{% endblock %}

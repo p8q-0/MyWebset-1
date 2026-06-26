@@ -1,0 +1,96 @@
+{% extends "admin-base.html" %}
+{% block title %}Lumora Cosmetics | Admin Dashboard{% endblock %}
+{% block content %}
+<section class="section-head admin-head">
+  <div>
+    <p class="eyebrow">Dashboard</p>
+    <h1>Manage your catalogue</h1>
+    <p class="muted">Add, edit, upload images, and remove products. Changes are saved directly to database.db.</p>
+  </div>
+  <div class="admin-user-chip" data-admin-user>Checking session...</div>
+</section>
+
+<section class="admin-layout" data-admin-dashboard>
+  <div class="panel-card category-panel">
+    <div class="panel-title-row">
+      <div>
+        <h2>Categories</h2>
+        <p class="muted">Add or remove product categories from the storefront.</p>
+      </div>
+    </div>
+    <form class="category-form" data-category-form>
+      <input type="text" name="category_name" placeholder="New category" required>
+      <button class="primary-button" type="submit">Add category</button>
+    </form>
+    <div class="category-list" data-category-list></div>
+  </div>
+
+  <form class="admin-form panel-card" data-product-form>
+    <input type="hidden" name="id" value="">
+    <div class="form-grid">
+      <label>
+        <span>Product name</span>
+        <input type="text" name="name" required>
+      </label>
+      <label>
+        <span>Category</span>
+        <select name="category" required>
+          <option value="">Select a category</option>
+          {% for cat in product_categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="full-span">
+        <span>Description</span>
+        <textarea name="description" rows="4" required></textarea>
+      </label>
+      <label>
+        <span>Price</span>
+        <input type="number" name="price" min="0" step="0.01" required>
+      </label>
+      <label>
+        <span>Stock</span>
+        <input type="number" name="stock" min="0" step="1" required>
+      </label>
+      <label class="full-span">
+        <span>Product image</span>
+        <input type="file" name="image_file" accept="image/*">
+      </label>
+      <label class="full-span">
+        <span>Image path</span>
+        <input type="text" name="image" placeholder="Auto-filled after upload or use /static/images/placeholder.svg">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="primary-button" type="submit" data-submit-label>Add product</button>
+      <button class="secondary-button" type="button" data-reset-form>Reset</button>
+    </div>
+    <div class="image-preview" data-image-preview></div>
+  </form>
+
+  <div class="panel-card table-card">
+    <div class="panel-title-row">
+      <div>
+        <h2>All products</h2>
+        <p class="muted">The list updates immediately after each database change.</p>
+      </div>
+      <button class="ghost-button" type="button" data-refresh-products>Refresh</button>
+    </div>
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody data-admin-product-table></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

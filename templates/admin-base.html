@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Lumora Cosmetics Admin{% endblock %}</title>
+  <meta name="description" content="Protected Lumora Cosmetics admin area.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <script defer src="{{ url_for('static', filename='js/admin.js') }}"></script>
+  {% block head %}{% endblock %}
+</head>
+<body class="admin-shell">
+  <div class="page-shell">
+    <header class="site-header admin-header">
+      <a class="brand" href="{{ url_for('admin_dashboard_page') }}">
+        <img class="brand-logo" src="{{ url_for('static', filename='images/logo.svg') }}" alt="Lumora Cosmetics logo">
+        <span>
+          <strong>Lumora Admin</strong>
+          <small>Product control</small>
+        </span>
+      </a>
+      <nav class="site-nav admin-nav" aria-label="Admin">
+        <a href="{{ url_for('index') }}">View Storefront</a>
+        <button type="button" class="ghost-button" data-logout-button>Sign out</button>
+      </nav>
+    </header>
+
+    <main class="page-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <div class="toast-stack" aria-live="polite" aria-atomic="true" data-toast-stack></div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
