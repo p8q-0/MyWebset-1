@@ -156,19 +156,18 @@ configure_app(app)
 
 
 def get_db():
-    # لو الرابط موجود يتصل بـ Postgres، ولو مش موجود (شغال لوكال) يرجع للـ SQLite القديمة عشان متعطلش
+    # إضافة هذا السطر هنا ليتمكن السيرفر من التعرف على المكتبة فوراً
+    import psycopg2
+    from psycopg2.extras import DictCursor
+    
     if DATABASE_URL:
         connection = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
+        connection.row_factory = DictCursor
         return connection
     else:
-        # دي الـ SQLite القديمة بتاعتك لو بتجرب على جهازك
-        import sqlite3
-        connection = sqlite3.connect(str(DATA_DIR / "database.db"), timeout=10)
+        connection = sqlite3.connect(DATABASE_PATH)
         connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA journal_mode = WAL")
         return connection
-
 
 def bootstrap_admin_from_env(db: sqlite3.Connection) -> None:
     username = os.environ.get("INITIAL_ADMIN_USERNAME")
