@@ -106,6 +106,11 @@ PRODUCT_CATEGORIES = ["Lips", "Face", "Eyes", "Skin"]
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
+@app.before_request
+def initialize_app_on_first_request():
+    # هذا السطر يضمن أن قاعدة البيانات ستُهيأ مرة واحدة فقط عند أول زيارة للموقع
+    app.before_request_funcs[None].remove(initialize_app_on_first_request)
+    init_db()
 
 def init_logging() -> None:
     dictConfig(
@@ -863,9 +868,4 @@ def inject_globals():
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        init_db()
     app.run(debug=True)
-else:
-    with app.app_context():
-        init_db()
