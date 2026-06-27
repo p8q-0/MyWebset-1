@@ -28,8 +28,10 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
+
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.parent / "MyWebset_data"
+DATABASE_PATH = DATA_DIR / "database.sqlite"  # <--- أضف هذا السطر هنا
 import os
 import psycopg2
 from psycopg2.extras import DictCursor
