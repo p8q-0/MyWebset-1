@@ -30,7 +30,9 @@ from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.parent / "MyWebset_data"
-DATABASE_PATH = Path(os.environ.get("DATABASE_PATH", str(DATA_DIR / "database.db")))
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 UPLOAD_FOLDER = Path(os.environ.get("UPLOAD_FOLDER", str(DATA_DIR / "uploads" / "products")))
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 SESSION_ADMIN_KEY = "admin_id"
@@ -147,12 +149,19 @@ def configure_app(application: Flask) -> None:
 configure_app(app)
 
 
-def get_db() -> sqlite3.Connection:
-    connection = sqlite3.connect(DATABASE_PATH, timeout=10)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
-    return connection
+def get_db():
+    # لو الرابط موجود يتصل بـ Postgres، ولو مش موجود (شغال لوكال) يرجع للـ SQLite القديمة عشان متعطلش
+    if DATABASE_URL:
+        connection = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
+        return connection
+    else:
+        # دي الـ SQLite القديمة بتاعتك لو بتجرب على جهازك
+        import sqlite3
+        connection = sqlite3.connect(str(DATA_DIR / "database.db"), timeout=10)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA journal_mode = WAL")
+        return connection
 
 
 def bootstrap_admin_from_env(db: sqlite3.Connection) -> None:
@@ -170,6 +179,80 @@ def bootstrap_admin_from_env(db: sqlite3.Connection) -> None:
 
 
 def init_db() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
+    with get_db() as db:
+        cursor = db.cursor()
+        
+        # إنشاء الجداول بصيغة Postgres
+        if DATABASE_URL:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS products (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    price REAL NOT NULL,
+                    category TEXT NOT NULL,
+                    stock INTEGER NOT NULL DEFAULT 0,
+                    image TEXT NOT NULL DEFAULT ''
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS categories (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admins (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL
+                )
+            """)
+        else:
+            # ديا لقواعد SQLite القديمة لو شغال لوكال
+            cursor.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT NOT NULL, price REAL NOT NULL, category TEXT NOT NULL, stock INTEGER NOT NULL DEFAULT 0, image TEXT NOT NULL DEFAULT '')")
+            cursor.execute("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)")
+            cursor.execute("CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)")
+
+        # مراجعة وجود الأدمن
+        cursor.execute("SELECT id FROM admins LIMIT 1")
+        existing_admin = cursor.fetchone()
+        if existing_admin is None:
+            # هنا بنمرر الـ db والـ cursor عشان يشتغلوا مع psycopg2
+            username = os.environ.get("INITIAL_ADMIN_USERNAME", "admin").strip()
+            password = os.environ.get("INITIAL_ADMIN_PASSWORD", "admin123")
+            param_char = "%s" if DATABASE_URL else "?"
+            cursor.execute(f"INSERT INTO admins (username, password) VALUES ({param_char}, {param_char})", (username, generate_password_hash(password)))
+            app.logger.info("Initial admin account created")
+
+        # مراجعة المنتجات
+        cursor.execute("SELECT COUNT(*) FROM products")
+        existing_products = cursor.fetchone()[0]
+        if existing_products == 0:
+            param_char = "%s" if DATABASE_URL else "?"
+            cursor.executemany(
+                f"INSERT INTO products (name, description, price, category, stock, image) VALUES ({param_char}, {param_char}, {param_char}, {param_char}, {param_char}, {param_char})",
+                [
+                    ("Velvet Rose Lipstick", "Creamy long-wear lipstick with a soft matte finish.", 24.0, "Lips", 42, "/static/images/placeholder.svg"),
+                    ("Glow Silk Foundation", "Lightweight buildable foundation with a radiant finish.", 38.0, "Face", 28, "/static/images/placeholder.svg"),
+                    ("Moonlit Lash Mascara", "Lengthening mascara for defined, lifted lashes.", 21.5, "Eyes", 35, "/static/images/placeholder.svg"),
+                    ("Aurora Hydration Serum", "Daily serum that helps skin feel plump and luminous.", 31.0, "Skin", 20, "/static/images/placeholder.svg"),
+                ],
+            )
+
+        # مراجعة الفئات
+        cursor.execute("SELECT COUNT(*) FROM categories")
+        existing_categories = cursor.fetchone()[0]
+        if existing_categories == 0:
+            param_char = "%s" if DATABASE_URL else "?"
+            cursor.executemany(
+                f"INSERT INTO categories (name) VALUES ({param_char})",
+                [(name binaries,) for name in PRODUCT_CATEGORIES],
+            )
+        db.commit()
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
@@ -353,7 +436,7 @@ def normalize_text(value: Any, max_length: int = 500) -> str:
 def validate_category(value: Any) -> str:
     category = normalize_text(value, 80)
     with get_db() as db:
-        if db.execute("SELECT name FROM categories WHERE name = ?", (category,)).fetchone() is None:
+        if db.execute("SELECT name FROM categories WHERE name = %s", (category,)).fetchone() is None:
             raise ValueError
     return category
 
@@ -386,7 +469,7 @@ def current_admin() -> dict[str, Any] | None:
     if not admin_id:
         return None
     with get_db() as db:
-        row = db.execute("SELECT id, username FROM admins WHERE id = ?", (admin_id,)).fetchone()
+        row = db.execute("SELECT id, username FROM admins WHERE id = %s", (admin_id,)).fetchone()
         if row is None:
             return None
         return {"id": row["id"], "username": row["username"]}
@@ -453,7 +536,7 @@ def api_create_category():
         try:
             cursor = db.execute("INSERT INTO categories (name) VALUES (?)", (name,))
             db.commit()
-            row = db.execute("SELECT name FROM categories WHERE id = ?", (cursor.lastrowid,)).fetchone()
+            row = db.execute("SELECT name FROM categories WHERE id = %s", (cursor.lastrowid,)).fetchone()
         except sqlite3.IntegrityError:
             app.logger.warning("Duplicate category creation attempt: %s", name)
             return jsonify({"error": "category already exists"}), 409
@@ -466,9 +549,9 @@ def api_create_category():
 def api_delete_category(category_name: str):
     require_csrf()
     with get_db() as db:
-        if db.execute("SELECT id FROM products WHERE category = ?", (category_name,)).fetchone() is not None:
+        if db.execute("SELECT id FROM products WHERE category = %s", (category_name,)).fetchone() is not None:
             return jsonify({"error": "category is in use"}), 409
-        db.execute("DELETE FROM categories WHERE name = ?", (category_name,))
+        db.execute("DELETE FROM categories WHERE name = %s", (category_name,))
         db.commit()
     app.logger.info("Deleted category: %s", category_name)
     return jsonify({"message": "deleted"})
@@ -484,7 +567,7 @@ def api_get_products():
 @app.route("/api/products/<int:product_id>", methods=["GET"])
 def api_get_product(product_id: int):
     with get_db() as db:
-        row = db.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+        row = db.execute("SELECT * FROM products WHERE id = %s", (product_id,)).fetchone()
     if row is None:
         return jsonify({"error": "not found"}), 404
     return jsonify(row_to_product(row))
@@ -501,7 +584,7 @@ def api_login():
         return jsonify({"error": "username and password are required"}), 400
 
     with get_db() as db:
-        row = db.execute("SELECT * FROM admins WHERE username = ?", (username,)).fetchone()
+        row = db.execute("SELECT * FROM admins WHERE username = %s", (username,)).fetchone()
 
     if row is None or not check_password_hash(row["password"], password):
         app.logger.warning("Failed login attempt for user: %s", username)
@@ -577,7 +660,7 @@ def api_create_product():
             (name, description, price, category, stock, image),
         )
         db.commit()
-        row = db.execute("SELECT * FROM products WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        row = db.execute("SELECT * FROM products WHERE id = %s", (cursor.lastrowid,)).fetchone()
     app.logger.info("Created product: %s", name)
     return jsonify(row_to_product(row)), 201
 
@@ -588,7 +671,7 @@ def api_update_product(product_id: int):
     require_csrf()
     payload = request.get_json(silent=True) or request.form
     with get_db() as db:
-        existing = db.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+        existing = db.execute("SELECT * FROM products WHERE id = %s", (product_id,)).fetchone()
         if existing is None:
             return jsonify({"error": "not found"}), 404
 
@@ -612,7 +695,7 @@ def api_update_product(product_id: int):
             (name, description, price, category, stock, image, product_id),
         )
         db.commit()
-        row = db.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+        row = db.execute("SELECT * FROM products WHERE id = %s", (product_id,)).fetchone()
     app.logger.info("Updated product %s: %s", product_id, name)
     return jsonify(row_to_product(row))
 
@@ -622,10 +705,10 @@ def api_update_product(product_id: int):
 def api_delete_product(product_id: int):
     require_csrf()
     with get_db() as db:
-        existing = db.execute("SELECT id FROM products WHERE id = ?", (product_id,)).fetchone()
+        existing = db.execute("SELECT id FROM products WHERE id = %s", (product_id,)).fetchone()
         if existing is None:
             return jsonify({"error": "not found"}), 404
-        db.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        db.execute("DELETE FROM products WHERE id = %s", (product_id,))
         db.commit()
     app.logger.info("Deleted product id %s", product_id)
     return jsonify({"message": "deleted"})
