@@ -159,16 +159,12 @@ def get_db():
     import psycopg2
     from psycopg2.extras import DictCursor
 
-    # إذا كان الاتصال موجوداً مسبقاً في الطلب الحالي لا تفتح واحداً جديداً
     if 'db' not in g:
         if os.environ.get("DATABASE_URL"):
-            # الاتصال بـ PostgreSQL
             g.db = psycopg2.connect(os.environ.get("DATABASE_URL"), cursor_factory=DictCursor)
         else:
-            # الاتصال بـ SQLite (في حال عدم وجود DATABASE_URL)
             g.db = sqlite3.connect(DATABASE_PATH)
             g.db.row_factory = sqlite3.Row
-            
     return g.db
 
 def bootstrap_admin_from_env(db: sqlite3.Connection) -> None:
@@ -867,5 +863,9 @@ def inject_globals():
 
 
 if __name__ == "__main__":
-    init_db()
-    app.run()
+    with app.app_context():
+        init_db()
+    app.run(debug=True)
+else:
+    with app.app_context():
+        init_db()
