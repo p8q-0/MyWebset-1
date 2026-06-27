@@ -250,7 +250,7 @@ def init_db() -> None:
             param_char = "%s" if DATABASE_URL else "?"
             cursor.executemany(
                 f"INSERT INTO categories (name) VALUES ({param_char})",
-                [(name binaries,) for name in PRODUCT_CATEGORIES],
+                [(name,) for name in PRODUCT_CATEGORIES],
             )
         db.commit()
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
