@@ -182,6 +182,86 @@ def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
+    # استيراد الدالة محلياً داخل الدالة لضمان أن البايثون يراها بدون مشاكل
+    from werkzeug.security import generate_password_hash
+
+    with get_db() as db:
+        cursor = db.cursor()
+        
+        # إنشاء الجداول بصيغة Postgres إذا كنا على سيرفر Railway
+        if DATABASE_URL:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS products (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    price REAL NOT NULL,
+                    category TEXT NOT NULL,
+                    stock INTEGER NOT NULL DEFAULT 0,
+                    image TEXT NOT NULL DEFAULT ''
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS categories (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admins (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL
+                )
+            """)
+        else:
+            # لقواعد SQLite المحلية إذا كنت تجرب على جهازك
+            cursor.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT NOT NULL, price REAL NOT NULL, category TEXT NOT NULL, stock INTEGER NOT NULL DEFAULT 0, image TEXT NOT NULL DEFAULT '')")
+            cursor.execute("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)")
+            cursor.execute("CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)")
+
+        # مراجعة وإنشاء حساب الأدمن الافتراضي
+        cursor.execute("SELECT id FROM admins LIMIT 1")
+        existing_admin = cursor.fetchone()
+        if existing_admin is None:
+            username = os.environ.get("INITIAL_ADMIN_USERNAME", "admin").strip()
+            password = os.environ.get("INITIAL_ADMIN_PASSWORD", "admin123")
+            param_char = "%s" if DATABASE_URL else "?"
+            cursor.execute(f"INSERT INTO admins (username, password) VALUES ({param_char}, {param_char})", (username, generate_password_hash(password)))
+            app.logger.info("Initial admin account created")
+
+        # مراجعة وإنشاء المنتجات الافتراضية
+        cursor.execute("SELECT COUNT(*) FROM products")
+        if DATABASE_URL:
+            existing_products = cursor.fetchone()[0]
+        else:
+            existing_products = cursor.fetchone()[0]
+
+        if existing_products == 0:
+            param_char = "%s" if DATABASE_URL else "?"
+            cursor.executemany(
+                f"INSERT INTO products (name, description, price, category, stock, image) VALUES ({param_char}, {param_char}, {param_char}, {param_char}, {param_char}, {param_char})",
+                [
+                    ("Velvet Rose Lipstick", "Creamy long-wear lipstick with a soft matte finish.", 24.0, "Lips", 42, "/static/images/placeholder.svg"),
+                    ("Glow Silk Foundation", "Lightweight buildable foundation with a radiant finish.", 38.0, "Face", 28, "/static/images/placeholder.svg"),
+                    ("Moonlit Lash Mascara", "Lengthening mascara for defined, lifted lashes.", 21.5, "Eyes", 35, "/static/images/placeholder.svg"),
+                    ("Aurora Hydration Serum", "Daily serum that helps skin feel plump and luminous.", 31.0, "Skin", 20, "/static/images/placeholder.svg"),
+                ],
+            )
+
+        # مراجعة الفئات
+        cursor.execute("SELECT COUNT(*) FROM categories")
+        existing_categories = cursor.fetchone()[0]
+        if existing_categories == 0:
+            param_char = "%s" if DATABASE_URL else "?"
+            cursor.executemany(
+                f"INSERT INTO categories (name) VALUES ({param_char})",
+                [(name,) for name in PRODUCT_CATEGORIES],
+            )
+        db.commit()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
     with get_db() as db:
         cursor = db.cursor()
         
