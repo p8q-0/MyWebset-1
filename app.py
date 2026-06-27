@@ -158,16 +158,18 @@ configure_app(app)
 def get_db():
     import psycopg2
     from psycopg2.extras import DictCursor
-    
-    if DATABASE_URL:
-        # بالنسبة لـ Postgres نمرر الـ cursor_factory مباشرة عند الاتصال وليس كـ row_factory
-        connection = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
-        return connection
-    else:
-        # بالنسبة لـ SQLite نتركها كما كانت تماماً
-        connection = sqlite3.connect(DATABASE_PATH)
-        connection.row_factory = sqlite3.Row
-        return connection
+
+    # إذا كان الاتصال موجوداً مسبقاً في الطلب الحالي لا تفتح واحداً جديداً
+    if 'db' not in g:
+        if os.environ.get("DATABASE_URL"):
+            # الاتصال بـ PostgreSQL
+            g.db = psycopg2.connect(os.environ.get("DATABASE_URL"), cursor_factory=DictCursor)
+        else:
+            # الاتصال بـ SQLite (في حال عدم وجود DATABASE_URL)
+            g.db = sqlite3.connect(DATABASE_PATH)
+            g.db.row_factory = sqlite3.Row
+            
+    return g.db
 
 def bootstrap_admin_from_env(db: sqlite3.Connection) -> None:
     username = os.environ.get("INITIAL_ADMIN_USERNAME")
