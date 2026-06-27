@@ -14,4 +14,5 @@ ENV FLASK_ENV=production
 EXPOSE 8000
 
 
-CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT:-8080} MyWebset.app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "--chdir", ".", "app:app"]
+
