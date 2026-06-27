@@ -454,7 +454,8 @@ def prepare_request() -> None:
             return redirect(request.url.replace("http://", "https://"), code=301)
 
 
-init_db()
+with app.app_context():
+    init_db()
 
 
 @app.after_request
