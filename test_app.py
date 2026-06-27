@@ -2,6 +2,7 @@
 Test suite for the cosmetics store Flask application.
 """
 
+import importlib
 import json
 import os
 import sqlite3
@@ -62,6 +63,14 @@ def client():
             temp_db_path.unlink()
         except (PermissionError, OSError):
             pass  # Ignore cleanup errors on Windows
+
+
+def test_app_uses_fallback_secret_key_when_env_missing(monkeypatch):
+    """App should still start even if SECRET_KEY is not set in deployment env."""
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    import app as app_module
+    reloaded_module = importlib.reload(app_module)
+    assert reloaded_module.app.config["SECRET_KEY"]
 
 
 class TestPublicPages:

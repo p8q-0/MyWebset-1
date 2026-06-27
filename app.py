@@ -126,9 +126,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[], enabled=not di
 
 
 def configure_app(application: Flask) -> None:
-    secret_key = os.environ.get("SECRET_KEY")
-    if not secret_key:
-        raise RuntimeError("SECRET_KEY environment variable must be set")
+    secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 
     application.config.update(
         SECRET_KEY=secret_key,
