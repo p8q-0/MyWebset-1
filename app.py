@@ -156,15 +156,15 @@ configure_app(app)
 
 
 def get_db():
-    # إضافة هذا السطر هنا ليتمكن السيرفر من التعرف على المكتبة فوراً
     import psycopg2
     from psycopg2.extras import DictCursor
     
     if DATABASE_URL:
+        # بالنسبة لـ Postgres نمرر الـ cursor_factory مباشرة عند الاتصال وليس كـ row_factory
         connection = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
-        connection.row_factory = DictCursor
         return connection
     else:
+        # بالنسبة لـ SQLite نتركها كما كانت تماماً
         connection = sqlite3.connect(DATABASE_PATH)
         connection.row_factory = sqlite3.Row
         return connection
