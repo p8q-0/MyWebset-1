@@ -73,6 +73,48 @@ def test_app_uses_fallback_secret_key_when_env_missing(monkeypatch):
     assert reloaded_module.app.config["SECRET_KEY"]
 
 
+def test_database_adapter_wraps_psycopg_style_connections():
+    """The DB adapter should expose execute/executemany for psycopg-style connections."""
+
+    class FakeCursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=()):
+            self.calls.append((query, params))
+            return None
+
+        def executemany(self, query, params_seq):
+            self.calls.append((query, params_seq))
+            return None
+
+        def fetchone(self):
+            return None
+
+        def fetchall(self):
+            return []
+
+    class FakeConnection:
+        def __init__(self):
+            self.commit_calls = 0
+            self.rollback_calls = 0
+
+        def cursor(self):
+            return FakeCursor()
+
+        def commit(self):
+            self.commit_calls += 1
+
+        def rollback(self):
+            self.rollback_calls += 1
+
+    adapter = app_module.DatabaseAdapter(FakeConnection())
+    cursor = adapter.execute("SELECT 1")
+    assert cursor is not None
+    cursor = adapter.executemany("INSERT INTO test VALUES (?)", [(1,)])
+    assert cursor is not None
+
+
 class TestPublicPages:
     """Test public-facing pages."""
     

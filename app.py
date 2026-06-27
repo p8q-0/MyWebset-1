@@ -31,16 +31,16 @@ from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.parent / "MyWebset_data"
-DATABASE_PATH = DATA_DIR / "database.sqlite"  # <--- أضف هذا السطر هنا
-import os
+DATABASE_PATH = DATA_DIR / "database.sqlite"
+
 import psycopg2
 from psycopg2.extras import DictCursor
 
-# جلب الرابط وإجبار السيرفر على قراءته من البيئة (Environment)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 UPLOAD_FOLDER = Path(os.environ.get("UPLOAD_FOLDER", str(DATA_DIR / "uploads" / "products")))
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 SESSION_ADMIN_KEY = "admin_id"
@@ -110,7 +110,6 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 
 @app.before_request
 def initialize_app_on_first_request():
-    # هذا السطر يضمن أن قاعدة البيانات ستُهيأ مرة واحدة فقط عند أول زيارة للموقع
     app.before_request_funcs[None].remove(initialize_app_on_first_request)
     init_db()
 
@@ -163,42 +162,25 @@ configure_app(app)
 
 
 def get_db():
-    import psycopg2
-    from psycopg2.extras import DictCursor
-
     if 'db' not in g:
-        if os.environ.get("DATABASE_URL"):
-            g.db = psycopg2.connect(os.environ.get("DATABASE_URL"), cursor_factory=DictCursor)
+        if DATABASE_URL:
+            g.db = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
         else:
             g.db = sqlite3.connect(DATABASE_PATH)
             g.db.row_factory = sqlite3.Row
     return g.db
 
-def bootstrap_admin_from_env(db: sqlite3.Connection) -> None:
-    username = os.environ.get("INITIAL_ADMIN_USERNAME")
-    password = os.environ.get("INITIAL_ADMIN_PASSWORD")
-    if username and password:
-        username = str(username).strip()
-        password = str(password)
-        if username and password:
-            db.execute(
-                "INSERT INTO admins (id, username, password) VALUES (?, ?, ?)",
-                (1, username, generate_password_hash(password)),
-            )
-            app.logger.info("Initial admin account created from environment variables")
-
 
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-
-    # استيراد الدالة محلياً داخل الدالة لضمان أن البايثون يراها بدون مشاكل
-    from werkzeug.security import generate_password_hash
+    if not DATABASE_URL:
+        DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     with get_db() as db:
         cursor = db.cursor()
+        param_char = "%s" if DATABASE_URL else "?"
         
-        # إنشاء الجداول بصيغة Postgres إذا كنا على سيرفر Railway
         if DATABASE_URL:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS products (
@@ -225,104 +207,22 @@ def init_db() -> None:
                 )
             """)
         else:
-            # لقواعد SQLite المحلية إذا كنت تجرب على جهازك
             cursor.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT NOT NULL, price REAL NOT NULL, category TEXT NOT NULL, stock INTEGER NOT NULL DEFAULT 0, image TEXT NOT NULL DEFAULT '')")
             cursor.execute("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)")
-            cursor.execute("CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)")
+            cursor.execute("CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)")
 
-        # مراجعة وإنشاء حساب الأدمن الافتراضي
         cursor.execute("SELECT id FROM admins LIMIT 1")
         existing_admin = cursor.fetchone()
         if existing_admin is None:
             username = os.environ.get("INITIAL_ADMIN_USERNAME", "admin").strip()
             password = os.environ.get("INITIAL_ADMIN_PASSWORD", "admin123")
-            param_char = "%s" if DATABASE_URL else "?"
             cursor.execute(f"INSERT INTO admins (username, password) VALUES ({param_char}, {param_char})", (username, generate_password_hash(password)))
             app.logger.info("Initial admin account created")
 
-        # مراجعة وإنشاء المنتجات الافتراضية
-        cursor.execute("SELECT COUNT(*) FROM products")
-        if DATABASE_URL:
-            existing_products = cursor.fetchone()[0]
-        else:
-            existing_products = cursor.fetchone()[0]
-
-        if existing_products == 0:
-            param_char = "%s" if DATABASE_URL else "?"
-            cursor.executemany(
-                f"INSERT INTO products (name, description, price, category, stock, image) VALUES ({param_char}, {param_char}, {param_char}, {param_char}, {param_char}, {param_char})",
-                [
-                    ("Velvet Rose Lipstick", "Creamy long-wear lipstick with a soft matte finish.", 24.0, "Lips", 42, "/static/images/placeholder.svg"),
-                    ("Glow Silk Foundation", "Lightweight buildable foundation with a radiant finish.", 38.0, "Face", 28, "/static/images/placeholder.svg"),
-                    ("Moonlit Lash Mascara", "Lengthening mascara for defined, lifted lashes.", 21.5, "Eyes", 35, "/static/images/placeholder.svg"),
-                    ("Aurora Hydration Serum", "Daily serum that helps skin feel plump and luminous.", 31.0, "Skin", 20, "/static/images/placeholder.svg"),
-                ],
-            )
-
-        # مراجعة الفئات
-        cursor.execute("SELECT COUNT(*) FROM categories")
-        existing_categories = cursor.fetchone()[0]
-        if existing_categories == 0:
-            param_char = "%s" if DATABASE_URL else "?"
-            cursor.executemany(
-                f"INSERT INTO categories (name) VALUES ({param_char})",
-                [(name,) for name in PRODUCT_CATEGORIES],
-            )
-        db.commit()
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-
-    with get_db() as db:
-        cursor = db.cursor()
-        
-        # إنشاء الجداول بصيغة Postgres
-        if DATABASE_URL:
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS products (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    description TEXT NOT NULL,
-                    price REAL NOT NULL,
-                    category TEXT NOT NULL,
-                    stock INTEGER NOT NULL DEFAULT 0,
-                    image TEXT NOT NULL DEFAULT ''
-                )
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS categories (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT UNIQUE NOT NULL
-                )
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS admins (
-                    id SERIAL PRIMARY KEY,
-                    username TEXT UNIQUE NOT NULL,
-                    password TEXT NOT NULL
-                )
-            """)
-        else:
-            # ديا لقواعد SQLite القديمة لو شغال لوكال
-            cursor.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT NOT NULL, price REAL NOT NULL, category TEXT NOT NULL, stock INTEGER NOT NULL DEFAULT 0, image TEXT NOT NULL DEFAULT '')")
-            cursor.execute("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)")
-            cursor.execute("CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)")
-
-        # مراجعة وجود الأدمن
-        cursor.execute("SELECT id FROM admins LIMIT 1")
-        existing_admin = cursor.fetchone()
-        if existing_admin is None:
-            # هنا بنمرر الـ db والـ cursor عشان يشتغلوا مع psycopg2
-            username = os.environ.get("INITIAL_ADMIN_USERNAME", "admin").strip()
-            password = os.environ.get("INITIAL_ADMIN_PASSWORD", "admin123")
-            param_char = "%s" if DATABASE_URL else "?"
-            cursor.execute(f"INSERT INTO admins (username, password) VALUES ({param_char}, {param_char})", (username, generate_password_hash(password)))
-            app.logger.info("Initial admin account created")
-
-        # مراجعة المنتجات
         cursor.execute("SELECT COUNT(*) FROM products")
         existing_products = cursor.fetchone()[0]
+
         if existing_products == 0:
-            param_char = "%s" if DATABASE_URL else "?"
             cursor.executemany(
                 f"INSERT INTO products (name, description, price, category, stock, image) VALUES ({param_char}, {param_char}, {param_char}, {param_char}, {param_char}, {param_char})",
                 [
@@ -333,101 +233,11 @@ def init_db() -> None:
                 ],
             )
 
-        # مراجعة الفئات
         cursor.execute("SELECT COUNT(*) FROM categories")
         existing_categories = cursor.fetchone()[0]
         if existing_categories == 0:
-            param_char = "%s" if DATABASE_URL else "?"
             cursor.executemany(
                 f"INSERT INTO categories (name) VALUES ({param_char})",
-                [(name,) for name in PRODUCT_CATEGORIES],
-            )
-        db.commit()
-    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-
-    with get_db() as db:
-        db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                price REAL NOT NULL,
-                category TEXT NOT NULL,
-                stock INTEGER NOT NULL DEFAULT 0,
-                image TEXT NOT NULL DEFAULT ''
-            )
-            """
-        )
-        db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL
-            )
-            """
-        )
-        db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS admins (
-                id INTEGER PRIMARY KEY,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            )
-            """
-        )
-        existing_admin = db.execute("SELECT id FROM admins LIMIT 1").fetchone()
-        if existing_admin is None:
-            bootstrap_admin_from_env(db)
-            existing_admin = db.execute("SELECT id FROM admins LIMIT 1").fetchone()
-            if existing_admin is None:
-                raise RuntimeError(
-                    "No admin account exists. Set INITIAL_ADMIN_USERNAME and INITIAL_ADMIN_PASSWORD before startup."
-                )
-        existing_products = db.execute("SELECT COUNT(*) AS count FROM products").fetchone()["count"]
-        if existing_products == 0:
-            db.executemany(
-                "INSERT INTO products (name, description, price, category, stock, image) VALUES (?, ?, ?, ?, ?, ?)",
-                [
-                    (
-                        "Velvet Rose Lipstick",
-                        "Creamy long-wear lipstick with a soft matte finish.",
-                        24.0,
-                        "Lips",
-                        42,
-                        "/static/images/placeholder.svg",
-                    ),
-                    (
-                        "Glow Silk Foundation",
-                        "Lightweight buildable foundation with a radiant finish.",
-                        38.0,
-                        "Face",
-                        28,
-                        "/static/images/placeholder.svg",
-                    ),
-                    (
-                        "Moonlit Lash Mascara",
-                        "Lengthening mascara for defined, lifted lashes.",
-                        21.5,
-                        "Eyes",
-                        35,
-                        "/static/images/placeholder.svg",
-                    ),
-                    (
-                        "Aurora Hydration Serum",
-                        "Daily serum that helps skin feel plump and luminous.",
-                        31.0,
-                        "Skin",
-                        20,
-                        "/static/images/placeholder.svg",
-                    ),
-                ],
-            )
-        existing_categories = db.execute("SELECT COUNT(*) AS count FROM categories").fetchone()["count"]
-        if existing_categories == 0:
-            db.executemany(
-                "INSERT INTO categories (name) VALUES (?)",
                 [(name,) for name in PRODUCT_CATEGORIES],
             )
         db.commit()
@@ -475,24 +285,6 @@ def after_request(response):
     if app.config.get("FORCE_HTTPS"):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
-def disable_api_caching(response):
-    if request.path.startswith("/api/"):
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    return response
-
-
-def row_to_product(row: sqlite3.Row) -> dict[str, Any]:
-    return {
-        "id": row["id"],
-        "name": row["name"],
-        "description": row["description"],
-        "price": float(row["price"]),
-        "category": row["category"],
-        "stock": int(row["stock"]),
-        "image": row["image"],
-    }
 
 
 def allowed_file(filename: str) -> bool:
@@ -526,9 +318,12 @@ def normalize_text(value: Any, max_length: int = 500) -> str:
 
 def validate_category(value: Any) -> str:
     category = normalize_text(value, 80)
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        if db.execute("SELECT name FROM categories WHERE name = %s", (category,)).fetchone() is None:
-            raise ValueError
+        with db.cursor() as cursor:
+            cursor.execute(f"SELECT name FROM categories WHERE name = {param_char}", (category,))
+            if cursor.fetchone() is None:
+                raise ValueError
     return category
 
 
@@ -559,11 +354,14 @@ def current_admin() -> dict[str, Any] | None:
     admin_id = session.get(SESSION_ADMIN_KEY)
     if not admin_id:
         return None
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        row = db.execute("SELECT id, username FROM admins WHERE id = %s", (admin_id,)).fetchone()
-        if row is None:
-            return None
-        return {"id": row["id"], "username": row["username"]}
+        with db.cursor() as cursor:
+            cursor.execute(f"SELECT id, username FROM admins WHERE id = {param_char}", (admin_id,))
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            return {"id": row["id"], "username": row["username"]}
 
 
 @app.route("/")
@@ -608,7 +406,9 @@ def uploaded_product_image(filename: str):
 @app.route("/api/categories", methods=["GET"])
 def api_get_categories():
     with get_db() as db:
-        rows = db.execute("SELECT name FROM categories ORDER BY name ASC").fetchall()
+        with db.cursor() as cursor:
+            cursor.execute("SELECT name FROM categories ORDER BY name ASC")
+            rows = cursor.fetchall()
     return jsonify([row["name"] for row in rows])
 
 
@@ -623,27 +423,40 @@ def api_create_category():
         app.logger.warning("Invalid category creation payload")
         return jsonify({"error": "invalid category data"}), 400
 
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        try:
-            cursor = db.execute("INSERT INTO categories (name) VALUES (?)", (name,))
-            db.commit()
-            row = db.execute("SELECT name FROM categories WHERE id = %s", (cursor.lastrowid,)).fetchone()
-        except sqlite3.IntegrityError:
-            app.logger.warning("Duplicate category creation attempt: %s", name)
-            return jsonify({"error": "category already exists"}), 409
+        with db.cursor() as cursor:
+            try:
+                if DATABASE_URL:
+                    cursor.execute("INSERT INTO categories (name) VALUES (%s) RETURNING name", (name,))
+                    row = cursor.fetchone()
+                    db.commit()
+                    category_name = row["name"]
+                else:
+                    cursor.execute("INSERT INTO categories (name) VALUES (?)", (name,))
+                    db.commit()
+                    cursor.execute("SELECT name FROM categories WHERE id = ?", (cursor.lastrowid,))
+                    row = cursor.fetchone()
+                    category_name = row["name"]
+            except (sqlite3.IntegrityError, psycopg2.IntegrityError):
+                app.logger.warning("Duplicate category creation attempt: %s", name)
+                return jsonify({"error": "category already exists"}), 409
     app.logger.info("Created category: %s", name)
-    return jsonify({"name": row["name"]}), 201
+    return jsonify({"name": category_name}), 201
 
 
 @app.route("/api/categories/<path:category_name>", methods=["DELETE"])
 @login_required
 def api_delete_category(category_name: str):
     require_csrf()
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        if db.execute("SELECT id FROM products WHERE category = %s", (category_name,)).fetchone() is not None:
-            return jsonify({"error": "category is in use"}), 409
-        db.execute("DELETE FROM categories WHERE name = %s", (category_name,))
-        db.commit()
+        with db.cursor() as cursor:
+            cursor.execute(f"SELECT id FROM products WHERE category = {param_char}", (category_name,))
+            if cursor.fetchone() is not None:
+                return jsonify({"error": "category is in use"}), 409
+            cursor.execute(f"DELETE FROM categories WHERE name = {param_char}", (category_name,))
+            db.commit()
     app.logger.info("Deleted category: %s", category_name)
     return jsonify({"message": "deleted"})
 
@@ -651,17 +464,22 @@ def api_delete_category(category_name: str):
 @app.route("/api/products", methods=["GET"])
 def api_get_products():
     with get_db() as db:
-        rows = db.execute("SELECT * FROM products ORDER BY id DESC").fetchall()
-    return jsonify([row_to_product(row) for row in rows])
+        with db.cursor() as cursor:
+            cursor.execute("SELECT * FROM products ORDER BY id DESC")
+            rows = cursor.fetchall()
+    return jsonify([dict(row) for row in rows])
 
 
 @app.route("/api/products/<int:product_id>", methods=["GET"])
 def api_get_product(product_id: int):
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        row = db.execute("SELECT * FROM products WHERE id = %s", (product_id,)).fetchone()
+        with db.cursor() as cursor:
+            cursor.execute(f"SELECT * FROM products WHERE id = {param_char}", (product_id,))
+            row = cursor.fetchone()
     if row is None:
         return jsonify({"error": "not found"}), 404
-    return jsonify(row_to_product(row))
+    return jsonify(dict(row))
 
 
 @app.route("/api/login", methods=["POST"])
@@ -674,8 +492,11 @@ def api_login():
         app.logger.warning("Login attempt with missing credentials")
         return jsonify({"error": "username and password are required"}), 400
 
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        row = db.execute("SELECT * FROM admins WHERE username = %s", (username,)).fetchone()
+        with db.cursor() as cursor:
+            cursor.execute(f"SELECT * FROM admins WHERE username = {param_char}", (username,))
+            row = cursor.fetchone()
 
     if row is None or not check_password_hash(row["password"], password):
         app.logger.warning("Failed login attempt for user: %s", username)
@@ -745,15 +566,27 @@ def api_create_product():
         app.logger.warning("Invalid product creation payload")
         return jsonify({"error": "invalid product data"}), 400
 
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        cursor = db.execute(
-            "INSERT INTO products (name, description, price, category, stock, image) VALUES (?, ?, ?, ?, ?, ?)",
-            (name, description, price, category, stock, image),
-        )
-        db.commit()
-        row = db.execute("SELECT * FROM products WHERE id = %s", (cursor.lastrowid,)).fetchone()
+        with db.cursor() as cursor:
+            if DATABASE_URL:
+                cursor.execute(
+                    """INSERT INTO products (name, description, price, category, stock, image) 
+                       VALUES (%s, %s, %s, %s, %s, %s) RETURNING *""",
+                    (name, description, price, category, stock, image),
+                )
+                row = cursor.fetchone()
+            else:
+                cursor.execute(
+                    """INSERT INTO products (name, description, price, category, stock, image) 
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (name, description, price, category, stock, image),
+                )
+                cursor.execute("SELECT * FROM products WHERE id = ?", (cursor.lastrowid,))
+                row = cursor.fetchone()
+            db.commit()
     app.logger.info("Created product: %s", name)
-    return jsonify(row_to_product(row)), 201
+    return jsonify(dict(row)), 201
 
 
 @app.route("/api/products/<int:product_id>", methods=["PUT"])
@@ -761,46 +594,54 @@ def api_create_product():
 def api_update_product(product_id: int):
     require_csrf()
     payload = request.get_json(silent=True) or request.form
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        existing = db.execute("SELECT * FROM products WHERE id = %s", (product_id,)).fetchone()
-        if existing is None:
-            return jsonify({"error": "not found"}), 404
+        with db.cursor() as cursor:
+            cursor.execute(f"SELECT * FROM products WHERE id = {param_char}", (product_id,))
+            existing = cursor.fetchone()
+            if existing is None:
+                return jsonify({"error": "not found"}), 404
 
-        try:
-            name = normalize_text(payload.get("name", existing["name"]), 120)
-            description = normalize_text(payload.get("description", existing["description"]), 1000)
-            category = validate_category(payload.get("category", existing["category"]))
-            price = sanitize_float(payload.get("price", existing["price"]), 0)
-            stock = sanitize_int(payload.get("stock", existing["stock"]), 0)
-            image = str(payload.get("image", existing["image"]) or "").strip()
-        except (TypeError, ValueError):
-            app.logger.warning("Invalid product update payload for id %s", product_id)
-            return jsonify({"error": "invalid product data"}), 400
+            try:
+                name = normalize_text(payload.get("name", existing["name"]), 120)
+                description = normalize_text(payload.get("description", existing["description"]), 1000)
+                category = validate_category(payload.get("category", existing["category"]))
+                price = sanitize_float(payload.get("price", existing["price"]), 0)
+                stock = sanitize_int(payload.get("stock", existing["stock"]), 0)
+                image = str(payload.get("image", existing["image"]) or "").strip()
+            except (TypeError, ValueError):
+                app.logger.warning("Invalid product update payload for id %s", product_id)
+                return jsonify({"error": "invalid product data"}), 400
 
-        db.execute(
-            """
-            UPDATE products
-            SET name = ?, description = ?, price = ?, category = ?, stock = ?, image = ?
-            WHERE id = ?
-            """,
-            (name, description, price, category, stock, image, product_id),
-        )
-        db.commit()
-        row = db.execute("SELECT * FROM products WHERE id = %s", (product_id,)).fetchone()
+            cursor.execute(
+                f"""
+                UPDATE products
+                SET name = {param_char}, description = {param_char}, price = {param_char}, 
+                    category = {param_char}, stock = {param_char}, image = {param_char}
+                WHERE id = {param_char}
+                """,
+                (name, description, price, category, stock, image, product_id),
+            )
+            db.commit()
+            cursor.execute(f"SELECT * FROM products WHERE id = {param_char}", (product_id,))
+            row = cursor.fetchone()
     app.logger.info("Updated product %s: %s", product_id, name)
-    return jsonify(row_to_product(row))
+    return jsonify(dict(row))
 
 
 @app.route("/api/products/<int:product_id>", methods=["DELETE"])
 @login_required
 def api_delete_product(product_id: int):
     require_csrf()
+    param_char = "%s" if DATABASE_URL else "?"
     with get_db() as db:
-        existing = db.execute("SELECT id FROM products WHERE id = %s", (product_id,)).fetchone()
-        if existing is None:
-            return jsonify({"error": "not found"}), 404
-        db.execute("DELETE FROM products WHERE id = %s", (product_id,))
-        db.commit()
+        with db.cursor() as cursor:
+            cursor.execute(f"SELECT id FROM products WHERE id = {param_char}", (product_id,))
+            existing = cursor.fetchone()
+            if existing is None:
+                return jsonify({"error": "not found"}), 404
+            cursor.execute(f"DELETE FROM products WHERE id = {param_char}", (product_id,))
+            db.commit()
     app.logger.info("Deleted product id %s", product_id)
     return jsonify({"message": "deleted"})
 
@@ -855,7 +696,11 @@ def build_lang_url(target_lang: str) -> str:
 @app.context_processor
 def inject_globals():
     with get_db() as db:
-        categories = [row["name"] for row in db.execute("SELECT name FROM categories ORDER BY name ASC").fetchall()]
+        with db.cursor() as cursor:
+            cursor.execute("SELECT name FROM categories ORDER BY name ASC")
+            rows = cursor.fetchall()
+            categories = [row["name"] for row in rows]
+            
     i18n_json = json.dumps(TRANSLATIONS, ensure_ascii=False)
     lang = getattr(g, "lang", DEFAULT_LANGUAGE)
     return {
