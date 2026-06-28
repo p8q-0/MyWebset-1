@@ -1,5 +1,6 @@
 (function () {
-  const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  const currencyLocale = (document.documentElement.lang || "en").toLowerCase().startsWith("ar") ? "ar-EG" : "en-EG";
+  const currency = new Intl.NumberFormat(currencyLocale, { style: "currency", currency: "EGP" });
   const cartKey = "cosmetics_store_cart";
   const orderKey = "cosmetics_store_order_counter";
 

@@ -63,7 +63,7 @@ TRANSLATIONS = {
     "explore_collection": {"en": "Explore Collection", "ar": "استكشف المجموعة"},
     "dermatologist_loved_formulas": {"en": "Dermatologist-loved formulas", "ar": "تركيبات محبوبة من أطباء الجلد"},
     "velvety_finishes": {"en": "Velvety finishes", "ar": "لمسات مخملية"},
-    "free_shipping": {"en": "Free shipping over $50", "ar": "شحن مجاني للطلبات فوق 50$"},
+    "free_shipping": {"en": "Free shipping over E£500", "ar": "شحن مجاني للطلبات فوق 500 ج.م"},
     "beauty_with_calm_luxury": {"en": "Beauty with calm luxury", "ar": "جمال برفاهية هادئة"},
     "no_products_found": {"en": "No products found", "ar": "لم يتم العثور على منتجات"},
     "no_products_in_category": {"en": "No products in the {category} category.", "ar": "لا توجد منتجات في فئة {category}."},

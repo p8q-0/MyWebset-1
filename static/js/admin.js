@@ -1,8 +1,11 @@
 (function () {
   let csrfToken = localStorage.getItem("cosmetics_store_csrf") || "";
 
+  const currencyLocale = (document.documentElement.lang || "en").toLowerCase().startsWith("ar") ? "ar-EG" : "en-EG";
+  const currencyFormatter = new Intl.NumberFormat(currencyLocale, { style: "currency", currency: "EGP" });
+
   function formatMoney(value) {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(value || 0));
+    return currencyFormatter.format(Number(value || 0));
   }
 
   function showToast(message, type = "info") {
