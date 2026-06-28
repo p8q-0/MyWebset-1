@@ -167,7 +167,7 @@
     card.className = "product-card";
     card.innerHTML = `
       <a class="product-media" href="/product/${product.id}">
-        <img src="${product.image}" alt="${product.name}">
+        <img src="${product.image}" alt="${product.name}" loading="lazy" decoding="async" width="400" height="400">
       </a>
       <div class="product-body">
         <div class="product-meta">
@@ -235,7 +235,7 @@
       const cartItem = document.createElement("article");
       cartItem.className = "cart-item";
       cartItem.innerHTML = `
-        <img src="${item.image}" alt="${item.name}">
+        <img src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" width="96" height="96">
         <div>
           <strong>${item.name}</strong>
           <div class="muted">${item.category} · ${formatMoney(item.price)} each</div>
@@ -322,6 +322,23 @@
       renderCheckoutSummary();
       form.reset();
       showToast(`Order ${orderId} prepared for WhatsApp`, "success");
+    });
+  }
+
+  const navToggle = document.querySelector("[data-nav-toggle]");
+  const siteNav = document.querySelector(".site-nav");
+  if (navToggle && siteNav) {
+    navToggle.addEventListener("click", () => {
+      const isOpen = siteNav.classList.toggle("is-open");
+      navToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      document.body.classList.toggle("nav-open", isOpen);
+    });
+    siteNav.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        siteNav.classList.remove("is-open");
+        navToggle.setAttribute("aria-expanded", "false");
+        document.body.classList.remove("nav-open");
+      });
     });
   }
 

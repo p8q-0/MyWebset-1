@@ -2,7 +2,9 @@
 <html lang="{{ lang }}" dir="{{ dir }}">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f9eff9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1025" media="(prefers-color-scheme: dark)">
   <title>{% block title %}Lumora Cosmetics | Premium Beauty & Skincare{% endblock %}</title>
   <meta name="description" content="Lumora Cosmetics offers premium skincare and beauty essentials designed to reveal your natural beauty with a luxurious, modern experience.">
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
@@ -21,7 +23,13 @@
         <span class="visually-hidden">Lumora Cosmetics</span>
       </a>
       {% if not hide_public_nav %}
-      <nav class="site-nav" aria-label="Primary">
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span class="nav-toggle-bar"></span>
+        <span class="nav-toggle-bar"></span>
+        <span class="nav-toggle-bar"></span>
+        <span class="visually-hidden">Toggle menu</span>
+      </button>
+      <nav class="site-nav" id="site-nav" aria-label="Primary">
         <a href="{{ url_for('index') }}#home">{{ t('home') }}</a>
         <a href="{{ url_for('index') }}#shop">{{ t('shop') }}</a>
         <a href="{{ url_for('cart_page') }}">{{ t('cart') }} <span class="cart-pill" data-cart-count>0</span></a>

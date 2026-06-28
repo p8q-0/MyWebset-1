@@ -2,7 +2,9 @@
 <html lang="{{ lang }}" dir="{{ dir }}">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f9eff9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1025" media="(prefers-color-scheme: dark)">
   <title>{% block title %}Lumora Cosmetics Admin{% endblock %}</title>
   <meta name="description" content="Protected Lumora Cosmetics admin area.">
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
