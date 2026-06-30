@@ -20,3 +20,5 @@ MyWebset_data/
 # OS files
 .DS_Store
  Thumbs.db
+.aider*
+lumora
