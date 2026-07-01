@@ -162,14 +162,12 @@ configure_app(app)
 
 
 def get_db():
+    if not DATABASE_URL:
+        raise RuntimeError("CRITICAL: DATABASE_URL is not set! Postgres connection is required.")
+        
     if 'db' not in g:
-        if DATABASE_URL:
-            g.db = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
-        else:
-            g.db = sqlite3.connect(DATABASE_PATH)
-            g.db.row_factory = sqlite3.Row
+        g.db = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
     return g.db
-
 
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -318,14 +316,12 @@ def normalize_text(value: Any, max_length: int = 500) -> str:
 
 def validate_category(value: Any) -> str:
     category = normalize_text(value, 80)
-    param_char = "%s" if DATABASE_URL else "?"
-    with get_db() as db:
-        with db.cursor() as cursor:
-            cursor.execute(f"SELECT name FROM categories WHERE name = {param_char}", (category,))
-            if cursor.fetchone() is None:
-                raise ValueError
+    db = get_db()
+    with db.cursor() as cursor:
+        cursor.execute("SELECT name FROM categories WHERE name = %s", (category,))
+        if cursor.fetchone() is None:
+            raise ValueError
     return category
-
 
 def login_required(view):
     @wraps(view)
@@ -594,40 +590,48 @@ def api_create_product():
 def api_update_product(product_id: int):
     require_csrf()
     payload = request.get_json(silent=True) or request.form
-    param_char = "%s" if DATABASE_URL else "?"
-    with get_db() as db:
-        with db.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM products WHERE id = {param_char}", (product_id,))
-            existing = cursor.fetchone()
-            if existing is None:
-                return jsonify({"error": "not found"}), 404
+    
+    # 1. جلب المنتج الحالي أولاً للتأكد من وجوده
+    db = get_db()
+    with db.cursor() as cursor:
+        cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
+        existing = cursor.fetchone()
+        
+    if existing is None:
+        return jsonify({"error": "not found"}), 404
 
-            try:
-                name = normalize_text(payload.get("name", existing["name"]), 120)
-                description = normalize_text(payload.get("description", existing["description"]), 1000)
-                category = validate_category(payload.get("category", existing["category"]))
-                price = sanitize_float(payload.get("price", existing["price"]), 0)
-                stock = sanitize_int(payload.get("stock", existing["stock"]), 0)
-                image = str(payload.get("image", existing["image"]) or "").strip()
-            except (TypeError, ValueError):
-                app.logger.warning("Invalid product update payload for id %s", product_id)
-                return jsonify({"error": "invalid product data"}), 400
+    # 2. عمل الـ validation بره الـ write transaction لمنع التداخل
+    try:
+        name = normalize_text(payload.get("name", existing["name"]), 120)
+        description = normalize_text(payload.get("description", existing["description"]), 1000)
+        category = validate_category(payload.get("category", existing["category"]))
+        price = sanitize_float(payload.get("price", existing["price"]), 0)
+        stock = sanitize_int(payload.get("stock", existing["stock"]), 0)
+        image = str(payload.get("image", existing["image"]) or "").strip()
+    except (TypeError, ValueError):
+        app.logger.warning("Invalid product update payload for id %s", product_id)
+        return jsonify({"error": "invalid product data"}), 400
 
+    # 3. الآن فتح الـ block للكتابة والتحديث وعمل commit بأمان
+    with get_db() as db_write:
+        with db_write.cursor() as cursor:
             cursor.execute(
-                f"""
+                """
                 UPDATE products
-                SET name = {param_char}, description = {param_char}, price = {param_char}, 
-                    category = {param_char}, stock = {param_char}, image = {param_char}
-                WHERE id = {param_char}
+                SET name = %s, description = %s, price = %s, 
+                    category = %s, stock = %s, image = %s
+                WHERE id = %s
                 """,
                 (name, description, price, category, stock, image, product_id),
             )
-            db.commit()
-            cursor.execute(f"SELECT * FROM products WHERE id = {param_char}", (product_id,))
+            db_write.commit()
+            
+            # جلب البيانات المحدثة لإرجاعها
+            cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
             row = cursor.fetchone()
+            
     app.logger.info("Updated product %s: %s", product_id, name)
     return jsonify(dict(row))
-
 
 @app.route("/api/products/<int:product_id>", methods=["DELETE"])
 @login_required
