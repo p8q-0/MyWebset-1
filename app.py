@@ -279,7 +279,7 @@ def after_request(response):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=()"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none';"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none';"
     if app.config.get("FORCE_HTTPS"):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response

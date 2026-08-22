@@ -115,6 +115,14 @@ def test_database_adapter_wraps_psycopg_style_connections():
     assert cursor is not None
 
 
+def test_csp_allows_blob_images_for_preview(client):
+    """Image previews from blob URLs should be accepted by the CSP."""
+    response = client.get("/admin-login")
+    csp = response.headers.get("Content-Security-Policy", "")
+    assert "img-src" in csp
+    assert "blob:" in csp
+
+
 class TestPublicPages:
     """Test public-facing pages."""
     
