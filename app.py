@@ -28,6 +28,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
+try:
+    from PIL import Image, ImageOps
+except ImportError:  # pragma: no cover - handled gracefully when Pillow is not installed yet
+    Image = None
+    ImageOps = None
+
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.parent / "MyWebset_data"
@@ -274,6 +280,11 @@ def after_request(response):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    elif request.path.startswith("/uploads/products/"):
+        response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+        response.headers["Vary"] = "Accept-Encoding"
+    elif request.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
 
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -287,6 +298,36 @@ def after_request(response):
 
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def optimize_uploaded_image(file_obj: Any, target_path: Path) -> Path:
+    if Image is None or ImageOps is None:
+        return target_path
+
+    try:
+        file_obj.seek(0)
+        with Image.open(file_obj) as image:
+            image = ImageOps.exif_transpose(image)
+            if image.mode in {"RGBA", "LA", "P"}:
+                image = image.convert("RGBA")
+            elif image.mode not in {"RGB", "L"}:
+                image = image.convert("RGB")
+
+            max_side = int(os.environ.get("MAX_PRODUCT_IMAGE_SIDE", "1200"))
+            image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+
+            output_path = target_path.with_suffix(".webp")
+            image.save(
+                output_path,
+                format="WEBP",
+                quality=int(os.environ.get("PRODUCT_IMAGE_QUALITY", "78")),
+                optimize=True,
+                method=6,
+            )
+            return output_path
+    except Exception:
+        app.logger.exception("Failed to optimize uploaded image; falling back to original upload")
+        return target_path
 
 
 def sanitize_int(value: Any, minimum: int | None = None) -> int:
@@ -396,7 +437,10 @@ def admin_dashboard_page() -> str:
 
 @app.route("/uploads/products/<path:filename>")
 def uploaded_product_image(filename: str):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+    response = send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+    response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    response.headers["Vary"] = "Accept-Encoding"
+    return response
 
 
 @app.route("/api/categories", methods=["GET"])
@@ -538,10 +582,17 @@ def api_upload():
         return jsonify({"error": "unsupported file type"}), 400
 
     filename = secure_filename(file.filename)
+    base_name = Path(filename).stem or "product"
     unique_prefix = secrets.token_hex(8)
-    final_name = f"{unique_prefix}_{filename}"
+    final_name = f"{unique_prefix}_{base_name}.webp"
     save_path = UPLOAD_FOLDER / final_name
-    file.save(save_path)
+
+    if not file.stream.seekable():
+        file.stream = file.stream
+
+    optimized_path = optimize_uploaded_image(file.stream, save_path)
+    final_name = optimized_path.name
+
     app.logger.info("Uploaded product image: %s", final_name)
     return jsonify({"message": "uploaded", "filename": final_name, "url": url_for("uploaded_product_image", filename=final_name)})
 
