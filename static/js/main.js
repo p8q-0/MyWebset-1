@@ -116,14 +116,22 @@
     const categoryFilter = document.querySelector("#category-filter");
     if (!categoryFilter) return;
 
+    const currentValue = categoryFilter.value;
+
     try {
       const categories = await fetchCategories();
       categoryFilter.innerHTML = `
         <option value="">All products</option>
         ${categories.map((category) => `<option value="${category}">${category}</option>`).join("")}
       `;
+      if (currentValue && categories.includes(currentValue)) {
+        categoryFilter.value = currentValue;
+      }
     } catch (error) {
       categoryFilter.innerHTML = `<option value="">All products</option>`;
+      if (currentValue) {
+        categoryFilter.value = "";
+      }
       showToast("Unable to load categories", "error");
     }
   }
@@ -135,11 +143,15 @@
     try {
       const allProducts = await fetchProducts();
       const categoryFilter = document.querySelector("#category-filter");
+      const searchInput = document.querySelector("#product-search");
       const selectedCategory = categoryFilter ? categoryFilter.value : "";
+      const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : "";
 
-      const filteredProducts = selectedCategory
-        ? allProducts.filter((p) => p.category === selectedCategory)
-        : allProducts;
+      const filteredProducts = allProducts.filter((product) => {
+        const nameMatch = !searchTerm || String(product.name || "").toLowerCase().includes(searchTerm);
+        const categoryMatch = !selectedCategory || product.category === selectedCategory;
+        return nameMatch && categoryMatch;
+      });
 
       grid.innerHTML = "";
       if (filteredProducts.length === 0) {
@@ -151,6 +163,7 @@
         `;
         return;
       }
+
       filteredProducts.forEach((product) => grid.appendChild(renderProductCard(product)));
     } catch (error) {
       grid.innerHTML = `
@@ -356,33 +369,65 @@
     loadCategories();
   }
 
+  const searchToggle = document.querySelector("[data-search-toggle]");
+  const searchPanel = document.querySelector("[data-search-panel]");
+  const searchForm = document.querySelector("[data-search-form]");
+  const searchInput = document.querySelector("#product-search");
+
+  if (searchToggle && searchPanel && searchForm && searchInput) {
+    searchToggle.addEventListener("click", () => {
+      const isOpen = searchPanel.classList.toggle("is-open");
+      searchToggle.setAttribute("aria-expanded", String(isOpen));
+      searchForm.classList.toggle("is-open", isOpen);
+      if (isOpen) {
+        searchInput.focus();
+      } else {
+        searchInput.value = "";
+        renderProducts();
+      }
+    });
+
+    searchInput.addEventListener("input", () => {
+      renderProducts();
+    });
+
+    searchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      renderProducts();
+    });
+  }
+
+  async function refreshCatalogViews() {
+    loadCategories();
+    renderProducts();
+    renderProductDetails();
+  }
+
   const catalogChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("catalog-updates") : null;
   if (catalogChannel) {
     catalogChannel.onmessage = (event) => {
       if (event.data && event.data.type === "catalog-updated") {
-        loadCategories();
-        renderHomeProducts();
-        renderProductDetails();
+        refreshCatalogViews();
       }
     };
   }
 
   window.addEventListener("storage", (event) => {
     if (event.key === "catalog_updated_at") {
-      renderHomeProducts();
-      renderProductDetails();
+      refreshCatalogViews();
     }
   });
 
   window.addEventListener("focus", () => {
-    renderHomeProducts();
-    renderProductDetails();
+    if (document.visibilityState === "visible") {
+      renderProducts();
+      renderProductDetails();
+    }
   });
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
-      loadCategories();
-      renderHomeProducts();
+      renderProducts();
       renderProductDetails();
     }
   });

@@ -33,11 +33,27 @@
     <p class="eyebrow">Featured Products</p>
     <h2>Curated for your glow</h2>
   </div>
-  <div class="filter-bar">
-    <label class="filter-label" for="category-filter">Filter by category</label>
-    <select id="category-filter">
-      <option value="">All products</option>
-    </select>
+  <div class="shop-tools">
+    <div class="filter-bar">
+      <label class="filter-label" for="category-filter">Filter by category</label>
+      <select id="category-filter">
+        <option value="">All products</option>
+      </select>
+    </div>
+
+    <div class="search-panel" data-search-panel>
+      <button class="search-toggle" type="button" aria-expanded="false" aria-controls="product-search" data-search-toggle aria-label="Open search">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="5.5"></circle>
+          <path d="M16 16L21 21"></path>
+        </svg>
+      </button>
+      <form class="search-form" data-search-form>
+        <label class="visually-hidden" for="product-search">Search products</label>
+        <input id="product-search" type="search" name="product-search" placeholder="Search products" autocomplete="off">
+        <button class="primary-button" type="submit">Search</button>
+      </form>
+    </div>
   </div>
 </section>
 
