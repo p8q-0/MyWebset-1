@@ -112,6 +112,137 @@
     return fetchJSON("/api/categories");
   }
 
+  let productSearchIndex = [];
+
+  function normalizeProductSearchText(value) {
+    return String(value || "")
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/[\u0640]/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function levenshteinDistance(left, right) {
+    if (left === right) return 0;
+    if (left.length === 0) return right.length;
+    if (right.length === 0) return left.length;
+
+    const dp = Array.from({ length: left.length + 1 }, () => new Array(right.length + 1).fill(0));
+    for (let i = 0; i <= left.length; i += 1) dp[i][0] = i;
+    for (let j = 0; j <= right.length; j += 1) dp[0][j] = j;
+
+    for (let i = 1; i <= left.length; i += 1) {
+      for (let j = 1; j <= right.length; j += 1) {
+        const substitutionCost = left[i - 1] === right[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + substitutionCost,
+        );
+      }
+    }
+
+    return dp[left.length][right.length];
+  }
+
+  function buildProductSearchIndex(products) {
+    return products.map((product) => {
+      const normalizedName = normalizeProductSearchText(product.name);
+      return {
+        id: product.id,
+        product,
+        normalizedName,
+        words: normalizedName ? normalizedName.split(/\s+/).filter(Boolean) : [],
+      };
+    });
+  }
+
+  function getProductSearchIndex(products) {
+    if (
+      !productSearchIndex.length ||
+      productSearchIndex.length !== products.length ||
+      productSearchIndex.some((entry, index) => Number(entry.id) !== Number(products[index]?.id))
+    ) {
+      productSearchIndex = buildProductSearchIndex(products);
+    }
+    return productSearchIndex;
+  }
+
+  function scoreProductNameMatch(entry, query) {
+    if (!query) return 0;
+    if (!entry || !entry.normalizedName) return 0;
+
+    const target = entry.normalizedName;
+    const queryWords = query.split(/\s+/).filter(Boolean);
+    if (!queryWords.length) return 0;
+
+    if (target === query) return 100000;
+    if (target.startsWith(query)) return 90000;
+    if (target.includes(query)) return 70000;
+
+    let score = 0;
+    const allWordsMatched = queryWords.every((queryWord) => {
+      if (entry.words.includes(queryWord)) return true;
+      return entry.words.some((word) => word.startsWith(queryWord) || queryWord.startsWith(word));
+    });
+
+    if (allWordsMatched) {
+      score += 5000;
+    }
+
+    for (const queryWord of queryWords) {
+      if (entry.words.includes(queryWord)) {
+        score += 2500;
+        continue;
+      }
+
+      const fuzzyCandidate = entry.words.find((word) =>
+        word.startsWith(queryWord) || queryWord.startsWith(word)
+      );
+      if (fuzzyCandidate) {
+        score += 1400;
+        continue;
+      }
+
+      const bestDistance = entry.words.reduce((best, word) => {
+        return Math.min(best, levenshteinDistance(queryWord, word));
+      }, Number.POSITIVE_INFINITY);
+
+      const maxAllowedDistance = Math.max(1, Math.ceil(queryWord.length * 0.25));
+      if (bestDistance <= maxAllowedDistance && queryWord.length >= 3) {
+        score += 800;
+      }
+    }
+
+    if (queryWords.length > 1 && allWordsMatched) {
+      score += 1200;
+    }
+
+    return score > 0 ? score - Math.max(0, target.length - query.length) * 2 : 0;
+  }
+
+  function searchProductsByName(products, query) {
+    const normalizedQuery = normalizeProductSearchText(query);
+    if (!normalizedQuery) {
+      return products;
+    }
+
+    const searchableProducts = getProductSearchIndex(products);
+    return searchableProducts
+      .map((entry) => ({
+        product: entry.product,
+        score: scoreProductNameMatch(entry, normalizedQuery),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((left, right) => {
+        if (right.score !== left.score) return right.score - left.score;
+        return String(left.product.name).localeCompare(String(right.product.name));
+      })
+      .map((item) => item.product);
+  }
+
   async function loadCategories() {
     const categoryFilter = document.querySelector("#category-filter");
     if (!categoryFilter) return;
@@ -145,13 +276,10 @@
       const categoryFilter = document.querySelector("#category-filter");
       const searchInput = document.querySelector("#product-search");
       const selectedCategory = categoryFilter ? categoryFilter.value : "";
-      const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : "";
+      const searchTerm = searchInput ? normalizeProductSearchText(searchInput.value) : "";
 
-      const filteredProducts = allProducts.filter((product) => {
-        const nameMatch = !searchTerm || String(product.name || "").toLowerCase().includes(searchTerm);
-        const categoryMatch = !selectedCategory || product.category === selectedCategory;
-        return nameMatch && categoryMatch;
-      });
+      const filteredProducts = searchProductsByName(allProducts, searchTerm)
+        .filter((product) => !selectedCategory || product.category === selectedCategory);
 
       grid.innerHTML = "";
       if (filteredProducts.length === 0) {
