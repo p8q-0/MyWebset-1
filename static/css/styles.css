@@ -281,14 +281,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 8px 4px;
 }
 .section-head h2, .summary-panel h2, .checkout-form h2, .panel-card h2 { margin: 0; font-family: "Playfair Display", Georgia, serif; color: var(--text); }
-.shop-tools { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
-.filter-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.shop-tools {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap;
+  width: 100%;
+}
+.filter-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-right: auto;
+}
 .filter-label { color: var(--muted); font-size: 0.95rem; }
 .filter-bar select {
   padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.95rem; color: var(--text); background: var(--input-bg);
 }
 .search-panel {
-  position: relative; display: flex; align-items: center; justify-content: flex-end;
+  position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 8px; max-width: 100%;
 }
 .search-toggle {
   display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 1px solid var(--border); border-radius: 50%; background: var(--surface);
@@ -299,10 +305,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round;
 }
 .search-form {
-  position: absolute; right: 0; top: calc(100% + 8px); display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transform: translateY(-6px); transition: opacity 180ms ease, transform 180ms ease;
+  display: none; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow);
 }
 .search-form.is-open {
-  opacity: 1; pointer-events: auto; transform: translateY(0);
+  display: flex;
 }
 .search-form input {
   width: min(220px, 44vw); border: 1px solid var(--border); border-radius: 999px; padding: 10px 14px; background: var(--input-bg); color: var(--text);
@@ -491,11 +497,29 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .section-head, .panel-title-row { align-items: start; flex-direction: column; }
   .shop-tools {
     width: 100%;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 12px;
+  }
+  .filter-bar {
+    width: 100%;
+    margin-right: 0;
+  }
+  .filter-bar select {
+    flex: 1;
+    min-width: 0;
+  }
+  .search-panel {
+    width: 100%;
+    justify-content: flex-end;
   }
   .search-form {
-    right: auto;
-    left: 0;
+    width: min(100%, 320px);
+  }
+  .search-form input {
+    width: 100%;
+    min-width: 0;
   }
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .cart-item { grid-template-columns: 1fr; text-align: center; }
@@ -531,6 +555,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .hero-card { padding: 22px; }
   .hero-copy h1 { max-width: none; }
   .product-grid, .form-grid { grid-template-columns: 1fr; }
+  .search-panel { width: 100%; }
+  .search-form {
+    width: 100%;
+    max-width: none;
+  }
+  .search-form input {
+    width: 100%;
+  }
   .hero-actions, .product-actions { flex-direction: column; }
   .hero-actions .primary-button,
   .hero-actions .secondary-button,
